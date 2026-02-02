@@ -2,6 +2,12 @@ import express from "express";
 import dotenv from "dotenv";
 import axios from "axios";
 
+import {
+  getTimeGreeting,
+  shouldGreet,
+  shouldSendNewMonth
+} from "./memory.js";
+
 dotenv.config();
 
 const app = express();
@@ -44,7 +50,10 @@ async function sendWhatsAppMessage(to, text) {
       }
     );
   } catch (error) {
-    console.error("Error sending WhatsApp message:", error.response?.data || error.message);
+    console.error(
+      "Error sending WhatsApp message:",
+      error.response?.data || error.message
+    );
   }
 }
 
@@ -54,19 +63,35 @@ app.post("/webhook", async (req, res) => {
   const change = entry?.changes?.[0];
   const message = change?.value?.messages?.[0];
 
-  if (message?.text) {
-    const from = message.from;
-    const text = message.text.body;
+  if (!message || !message.text) {
+    return res.sendStatus(200);
+  }
 
-    console.log("From:", from);
-    console.log("Message:", text);
+  const clientNumber = message.from;
+  const text = message.text.body;
 
-    // Temporary reply (test)
+  console.log("From:", clientNumber);
+  console.log("Message:", text);
+
+  // 🔔 New Month Greeting (once per month)
+  if (shouldSendNewMonth(clientNumber)) {
     await sendWhatsAppMessage(
-      from,
-      "Hello 👋 I’m here to help you with branding, apps, and digital services."
+      clientNumber,
+      "Happy new month 🎉 Wishing you a productive and successful month ahead."
     );
   }
+
+  // 🌤️ Daily Time-based Greeting (once per day)
+  if (shouldGreet(clientNumber)) {
+    const greeting = getTimeGreeting();
+    await sendWhatsAppMessage(clientNumber, greeting);
+  }
+
+  // 🧪 Temporary reply (will be replaced by AI later)
+  await sendWhatsAppMessage(
+    clientNumber,
+    "Hello 👋 I’m here to help you with branding, apps, and digital services."
+  );
 
   res.sendStatus(200);
 });
