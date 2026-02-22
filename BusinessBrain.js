@@ -52,7 +52,15 @@ B3 Diwani Plaza, 14 Akufor Along Aso Savings Road,
 Before Byazhin Junction, Kubwa, Abuja.
 
 Walk-ins are allowed.
-Location is never a barrier as we deliver all designs in soft copy with printable formats.
+Location is never a barrier as we deliver in soft copy with printable formats.
+`;
+
+const COMPANY_DETAILS_REQUEST = `
+To proceed with branding, kindly send your 👇
+
+✅ Company Name  
+✅ Slogan (Optional)  
+✅ Phone Number (Optional)
 `;
 
 export async function processMessage({
@@ -68,33 +76,10 @@ export async function processMessage({
     return { action: "reply", message: "Message received." };
   }
 
-  const intent = await classifyIntent(message, groq);
   const lower = message.toLowerCase();
-// =========================
-// STRICT SILENCE RULES
-// =========================
-
-// Price negotiation detection
-if (
-  lower.includes("reduce") ||
-  lower.includes("discount") ||
-  lower.includes("cheaper") ||
-  lower.includes("last price") ||
-  lower.includes("can you do better")
-) {
-  return { action: "silent" };
-}
-
-// Elite or Full selected explicitly
-if (
-  lower.includes("elite branding package") ||
-  lower.includes("full branding package")
-) {
-  return { action: "silent" };
-}
 
   // =========================
-  // LOCATION
+  // LOCATION REQUEST
   // =========================
   if (lower.includes("location") || lower.includes("office")) {
     return { action: "reply", message: BUSINESS_INFO };
@@ -103,16 +88,16 @@ if (
   // =========================
   // SAMPLE REQUEST
   // =========================
-  if (intent === "SampleRequest") {
+  if (lower.includes("sample") || lower.includes("previous work")) {
     return {
       action: "reply",
       message:
-        "Kindly go through our design samples here 👇👇\nhttps://web.facebook.com/profile.php?id=100092567179199&sk=photos"
+        "Kindly view our design samples here 👇👇\nhttps://web.facebook.com/profile.php?id=100092567179199&sk=photos"
     };
   }
 
   // =========================
-  // PRICE ENQUIRY
+  // PRICE ENQUIRY (EXCEPTION RULE)
   // =========================
   if (
     lower.includes("how much") ||
@@ -123,49 +108,78 @@ if (
       action: "reply",
       message:
         FULL_PACKAGE_DETAILS +
-        "\nKindly select the package that best suits your needs and budget."
+        "\nKindly select the package that best suits your business."
     };
   }
 
   // =========================
-  // GENERAL HUMAN RESPONSE
+  // NEGOTIATION HANDLING
+  // =========================
+  if (
+    lower.includes("discount") ||
+    lower.includes("reduce") ||
+    lower.includes("cheaper") ||
+    lower.includes("last price")
+  ) {
+    return {
+      action: "reply",
+      message:
+        "Our pricing is structured to reflect the quality and value we deliver.\nKindly select the package that fits your budget."
+    };
+  }
+
+  // =========================
+  // COMPANY DETAILS COLLECTION
+  // =========================
+  if (!session.companyDetailsCollected) {
+    updateSession(clientNumber, {
+      companyDetailsCollected: true,
+      stage: "awaiting_details"
+    });
+
+    return {
+      action: "reply",
+      message: COMPANY_DETAILS_REQUEST
+    };
+  }
+
+  // =========================
+  // PACKAGE SELECTION DETECTION
+  // =========================
+  if (lower.includes("promo") ||
+      lower.includes("starter") ||
+      lower.includes("basic") ||
+      lower.includes("standard") ||
+      lower.includes("professional") ||
+      lower.includes("premium") ||
+      lower.includes("elite") ||
+      lower.includes("full")
+  ) {
+    updateSession(clientNumber, {
+      selectedPackage: message,
+      stage: "package_selected"
+    });
+
+    return {
+      action: "reply",
+      message:
+        "Thank you for selecting your preferred package.\nTo proceed, kindly make the required deposit.\nWork begins immediately after confirmation."
+    };
+  }
+
+  // =========================
+  // HUMAN CORPORATE RESPONSE
   // =========================
   const response = await generateHumanResponse(message, groq);
 
   return {
     action: "reply",
-    message: response
+    message: response + "\nKindly let us know how you would like to proceed."
   };
 }
 
-
 // =========================
-// INTENT CLASSIFIER
-// =========================
-async function classifyIntent(message, groq) {
-  try {
-    const result = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Classify the message into ONE word only: Greeting, GeneralEnquiry, PackageSelection, PriceNegotiation, SampleRequest, PaymentConfirmation, HighValuePackage, CustomRequest, Irrelevant."
-        },
-        { role: "user", content: message }
-      ],
-      temperature: 0
-    });
-
-    return result.choices[0].message.content.trim();
-  } catch {
-    return "GeneralEnquiry";
-  }
-}
-
-
-// =========================
-// HUMAN CORPORATE RESPONSE
+// HUMAN-LIKE RESPONSE ENGINE
 // =========================
 async function generateHumanResponse(message, groq) {
   try {
@@ -175,48 +189,26 @@ async function generateHumanResponse(message, groq) {
         {
           role: "system",
           content: `
-You are the official corporate customer service officer for Richie Digital Creations.
+You are the official corporate customer service executive of Richie Digital Creations.
 
-You must behave like a real trained Nigerian business executive.
+You behave like a trained Nigerian business professional.
 
 BUSINESS KNOWLEDGE:
-
-Richie Digital Creations offers structured branding packages only.
-
-Packages include:
-- Promo (₦3,000, full payment, one logo, no revision)
-- Starter (₦5,000, 2 logos, unlimited revision, 50% deposit)
-- Basic (₦7,000, logo + letterhead)
-- Standard (₦15,000, includes business card & ID card)
-- Professional (₦30,000, includes flyer, receipt, invoice)
-- Premium (₦60,000, includes company profile)
-- Elite (₦120,000, corporate emails & website)
-- Full (₦300,000, full branding + social media + listing)
-
-POLICIES:
-- Work begins after required deposit.
-- No price negotiation.
-- No custom pricing outside structured packages.
-- Designs delivered in soft copy and printable formats.
-- Walk-in office allowed in Kubwa, Abuja.
+- Structured branding packages only.
+- Work starts after required deposit.
+- No custom pricing outside packages.
+- Designs delivered in soft copy & printable format.
+- Office in Kubwa, Abuja.
 - Location is never a barrier.
 
-YOUR BEHAVIOR RULES:
+BEHAVIOR RULES:
 - Maximum 4 short lines.
-- Answer directly.
+- Clear, confident, professional.
 - Do not oversell.
-- Do not dump full package list unless price is asked.
-- Do not mention internal rules.
 - Do not negotiate.
-- If question is outside branding scope, redirect professionally.
-- If client is confused, clarify briefly.
-- If client asks “which is best”, recommend appropriately.
-- Maintain authority and professionalism.
-
-If client asks something unrelated to branding:
-Respond briefly and guide back to branding services.
-
-Always end with a soft guiding statement when appropriate.
+- If confused, clarify briefly.
+- Guide client toward selecting a package.
+- Maintain authority.
 `
         },
         {
@@ -229,30 +221,28 @@ Always end with a soft guiding statement when appropriate.
 
     return result.choices[0].message.content.trim();
   } catch {
-    return "Kindly let us know how we may assist you.";
+    return "Kindly clarify your request so we may assist you properly.";
   }
 }
 
 // =========================
-// FOLLOW-UP SCHEDULER
+// FOLLOW-UP SYSTEM
 // =========================
 export function startFollowUpScheduler(sendWhatsAppMessage) {
   setInterval(async () => {
     const sessions = getAllSessions();
     const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
 
     for (const [client, data] of sessions.entries()) {
-      const oneHour = 60 * 60 * 1000;
-
       if (
-        data.stage === "idle" &&
-        !data.selectedPackage &&
+        data.stage === "awaiting_details" &&
         !data.followUpSent &&
         now - data.lastInteraction > oneHour
       ) {
         await sendWhatsAppMessage(
           client,
-          "Good day. We are following up to confirm if you would like to proceed with any of our branding packages."
+          "Kindly send your company details so we may proceed with your branding."
         );
 
         updateSession(client, { followUpSent: true });
