@@ -70,17 +70,28 @@ export async function processMessage({
 
   const intent = await classifyIntent(message, groq);
   const lower = message.toLowerCase();
+// =========================
+// STRICT SILENCE RULES
+// =========================
 
-  // =========================
-  // SILENCE RULES
-  // =========================
-  if (
-    intent === "PriceNegotiation" ||
-    intent === "CustomRequest" ||
-    intent === "HighValuePackage"
-  ) {
-    return { action: "silent" };
-  }
+// Price negotiation detection
+if (
+  lower.includes("reduce") ||
+  lower.includes("discount") ||
+  lower.includes("cheaper") ||
+  lower.includes("last price") ||
+  lower.includes("can you do better")
+) {
+  return { action: "silent" };
+}
+
+// Elite or Full selected explicitly
+if (
+  lower.includes("elite branding package") ||
+  lower.includes("full branding package")
+) {
+  return { action: "silent" };
+}
 
   // =========================
   // LOCATION
