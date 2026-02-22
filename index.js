@@ -3,28 +3,23 @@ import dotenv from "dotenv";
 import axios from "axios";
 import Groq from "groq-sdk";
 
-import { processMessage } from "./BusinessBrain.js";
+import { processMessage, startFollowUpScheduler } from "./BusinessBrain.js";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-// Initialize Groq (used later for vision or formatting)
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// =============================
-// HEALTH CHECK
-// =============================
+// Health
 app.get("/", (req, res) => {
-  res.send("Richie Digital Creations Bot Running");
+  res.send("Richie Digital Creations Business Brain v2 Running");
 });
 
-// =============================
-// WEBHOOK VERIFICATION
-// =============================
+// Webhook Verification
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -37,10 +32,8 @@ app.get("/webhook", (req, res) => {
   return res.sendStatus(403);
 });
 
-// =============================
-// SEND WHATSAPP MESSAGE
-// =============================
-async function sendWhatsAppMessage(to, text) {
+// Send WhatsApp Message
+export async function sendWhatsAppMessage(to, text) {
   try {
     await axios.post(
       `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
@@ -61,9 +54,7 @@ async function sendWhatsAppMessage(to, text) {
   }
 }
 
-// =============================
-// INCOMING WEBHOOK
-// =============================
+// Incoming Webhook
 app.post("/webhook", async (req, res) => {
   const entry = req.body.entry?.[0];
   const change = entry?.changes?.[0];
@@ -77,20 +68,16 @@ app.post("/webhook", async (req, res) => {
   const messageType = messageObj.type;
 
   let messageText = "";
-
   if (messageType === "text") {
     messageText = messageObj.text.body;
   }
-
-  console.log("Client:", clientNumber);
-  console.log("Type:", messageType);
-  console.log("Message:", messageText);
 
   const result = await processMessage({
     clientNumber,
     message: messageText,
     messageType,
-    rawMessage: messageObj,
+    groq,
+    sendWhatsAppMessage
   });
 
   if (result?.action === "reply") {
@@ -99,6 +86,8 @@ app.post("/webhook", async (req, res) => {
 
   res.sendStatus(200);
 });
+
+startFollowUpScheduler(sendWhatsAppMessage);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

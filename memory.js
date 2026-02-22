@@ -7,7 +7,7 @@ export function getSession(client) {
       selectedPackage: null,
       details: {},
       lastInteraction: Date.now(),
-      followUpSent: false,
+      followUpSent: false
     });
   }
   return sessions.get(client);
@@ -16,10 +16,6 @@ export function getSession(client) {
 export function updateSession(client, updates) {
   const current = getSession(client);
   sessions.set(client, { ...current, ...updates });
-}
-
-export function resetSession(client) {
-  sessions.delete(client);
 }
 
 export function getAllSessions() {
