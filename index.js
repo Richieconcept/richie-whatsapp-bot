@@ -61,8 +61,6 @@ async function sendWhatsAppMessage(to, text) {
     );
   }
 }
-
-// ✅ AI Reply Function
 async function generateAIReply(userMessage) {
   try {
     const completion = await groq.chat.completions.create({
@@ -71,7 +69,7 @@ async function generateAIReply(userMessage) {
         {
           role: "system",
           content:
-            "You are a professional Nigerian business assistant for IBSK World Services Ltd. You help customers with branding, printing, digital services and business registrations. Keep replies short, clear and professional."
+            "You are a professional Nigerian business assistant for Richie Digital Creations. You help customers with branding, printing, digital services, logo design, business registrations and creative solutions. Always introduce the business as Richie Digital Creations when necessary. Keep replies short, clear and professional."
         },
         {
           role: "user",
