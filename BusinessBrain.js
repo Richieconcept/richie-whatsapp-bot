@@ -1,5 +1,49 @@
 import { getSession, updateSession, getAllSessions } from "./memory.js";
 
+const FULL_PACKAGE_DETAILS = `
+Here are our available branding packages:
+
+—Promo Package—
+✔ One logo design
+✔ No revision
+✔ 12 hours delivery
+₦3,000 (Full payment)
+
+—Starter Branding Package—
+✔ 2 logo designs
+✔ Unlimited revision
+✔ 24 hours delivery
+₦5,000 (50% deposit)
+
+—Basic Branding Package—
+✔ Logo + Letterhead
+✔ 24 hours delivery
+₦7,000 (50% deposit)
+
+—Standard Branding Package—
+✔ Logo + Letterhead + Business Card + ID Card + Company QR Code
+✔ 48 hours delivery
+₦15,000 (50% deposit)
+
+—Professional Branding Package—
+✔ Logo + Letterhead + Business Card + ID Card + Flyer + Receipt + Invoice + Large Envelope + QR Code
+✔ 48 hours delivery
+₦30,000 (50% deposit)
+
+—Premium Branding Package—
+✔ Logo + Letterhead + Business Card + ID Card + Flyer + Invoice + Receipt + Large & Small Envelope + Company Profile (up to 12 pages)
+✔ 48 hours delivery
+₦60,000 (50% deposit)
+
+—Elite Branding Package—
+✔ Multiple brand assets + Corporate Emails + Basic Website
+₦120,000
+
+—Full Branding Package—
+✔ Full branding + Website + Social Media + Google Business Listing
+₦300,000
+`;
+
 const BUSINESS_INFO = `
 Richie Digital Creations
 Phone: 08125128766
@@ -8,29 +52,14 @@ B3 Diwani Plaza, 14 Akufor Along Aso Savings Road,
 Before Byazhin Junction, Kubwa, Abuja.
 
 Walk-ins are allowed.
-Location is never a barrier.
-All designs are delivered in soft copy with printable formats.
-`;
-
-const PACKAGES = `
-—Promo Package— ₦3,000 (Full Payment Only)
-—Starter Branding Package— ₦5,000 (50% deposit)
-—Basic Branding Package— ₦7,000 (50% deposit)
-—Standard Branding Package— ₦15,000 (50% deposit)
-—Professional Branding Package— ₦30,000 (50% deposit)
-—Premium Branding Package— ₦60,000 (50% deposit)
-—Elite Branding Package— ₦120,000
-—Full Branding Package— ₦300,000
-
-Kindly indicate your preferred package.
+Location is never a barrier as we deliver all designs in soft copy with printable formats.
 `;
 
 export async function processMessage({
   clientNumber,
   message,
   messageType,
-  groq,
-  sendWhatsAppMessage
+  groq
 }) {
   const session = getSession(clientNumber);
   updateSession(clientNumber, { lastInteraction: Date.now() });
@@ -40,25 +69,23 @@ export async function processMessage({
   }
 
   const intent = await classifyIntent(message, groq);
+  const lower = message.toLowerCase();
 
-  // Silence Rules
+  // SILENCE RULES
   if (
     intent === "PriceNegotiation" ||
-    intent === "HighValuePackage" ||
-    intent === "CustomRequest"
+    intent === "CustomRequest" ||
+    intent === "HighValuePackage"
   ) {
     return { action: "silent" };
   }
 
-  if (intent === "Greeting") {
-    return {
-      action: "reply",
-      message:
-        "Good day. Welcome to Richie Digital Creations.\n\nWe specialize in professional branding solutions.\n\n" +
-        PACKAGES
-    };
+  // LOCATION ENQUIRY
+  if (lower.includes("location") || lower.includes("office")) {
+    return { action: "reply", message: BUSINESS_INFO };
   }
 
+  // SAMPLE REQUEST
   if (intent === "SampleRequest") {
     return {
       action: "reply",
@@ -67,68 +94,78 @@ export async function processMessage({
     };
   }
 
-  if (intent === "GeneralEnquiry") {
-    if (message.toLowerCase().includes("location")) {
-      return { action: "reply", message: BUSINESS_INFO };
-    }
-
+  // PRICE / COST ENQUIRY → SHOW FULL PACKAGE
+  if (
+    lower.includes("how much") ||
+    lower.includes("price") ||
+    lower.includes("cost")
+  ) {
     return {
       action: "reply",
       message:
-        "We provide structured corporate branding solutions including logo design, identity systems, and complete brand packages.\n\n" +
-        PACKAGES
+        FULL_PACKAGE_DETAILS +
+        "\nKindly select the package that best suits your needs and budget."
     };
   }
 
-  if (intent === "PackageSelection") {
-    updateSession(clientNumber, {
-      selectedPackage: message,
-      stage: "awaiting_payment"
-    });
-
-    return {
-      action: "reply",
-      message:
-        "Kindly proceed with payment to begin work.\n\nBank: Access Bank\nAccount Number: 1882633537\nAccount Name: Richie Digital Creations"
-    };
-  }
-
-  if (intent === "PaymentConfirmation") {
-    return {
-      action: "reply",
-      message: "Payment confirmation received. Our team will verify and revert shortly."
-    };
-  }
+  // GREETING OR GENERAL ENQUIRY → AI HUMAN RESPONSE
+  const response = await generateHumanResponse(message, groq);
 
   return {
     action: "reply",
-    message:
-      "Kindly let us know how we may assist you regarding our branding packages."
+    message: response
   };
 }
 
-// AI Intent Classifier
+// AI Intent Classification
 async function classifyIntent(message, groq) {
   try {
-    const response = await groq.chat.completions.create({
+    const result = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",
           content:
-            "Classify the user message into ONE word only: Greeting, GeneralEnquiry, PackageSelection, PriceNegotiation, SampleRequest, PaymentConfirmation, HighValuePackage, CustomRequest, Irrelevant."
+            "Classify the message into ONE word only: Greeting, GeneralEnquiry, PackageSelection, PriceNegotiation, SampleRequest, PaymentConfirmation, HighValuePackage, CustomRequest, Irrelevant."
         },
-        {
-          role: "user",
-          content: message
-        }
+        { role: "user", content: message }
       ],
       temperature: 0
     });
 
-    return response.choices[0].message.content.trim();
+    return result.choices[0].message.content.trim();
   } catch {
     return "GeneralEnquiry";
+  }
+}
+
+// AI Human Corporate Response Generator
+async function generateHumanResponse(message, groq) {
+  try {
+    const result = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: `
+You are a corporate customer service officer for Richie Digital Creations.
+
+Respond briefly and professionally.
+Maximum 4 short lines.
+Do not negotiate price.
+Do not explain internal policies.
+Do not oversell.
+Act like a trained Nigerian corporate staff.
+`
+        },
+        { role: "user", content: message }
+      ],
+      temperature: 0.5
+    });
+
+    return result.choices[0].message.content.trim();
+  } catch {
+    return "Kindly let us know how we may assist you.";
   }
 }
 
