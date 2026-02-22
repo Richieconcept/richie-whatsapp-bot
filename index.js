@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import axios from "axios";
+import Groq from "groq-sdk";
 
 import {
   getTimeGreeting,
@@ -12,6 +13,11 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
+
+// ✅ Initialize Groq
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 // Health check
 app.get("/", (req, res) => {
@@ -57,6 +63,31 @@ async function sendWhatsAppMessage(to, text) {
   }
 }
 
+// ✅ AI Reply Function
+async function generateAIReply(userMessage) {
+  try {
+    const completion = await groq.chat.completions.create({
+      model: "llama3-8b-8192",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional Nigerian business assistant helping customers with branding and digital services. Keep responses clear and concise."
+        },
+        {
+          role: "user",
+          content: userMessage
+        }
+      ],
+      temperature: 0.7
+    });
+
+    return completion.choices[0]?.message?.content || "How may I assist you today?";
+  } catch (error) {
+    console.error("AI Error:", error.message);
+    return "Sorry, I'm having trouble responding right now.";
+  }
+}
+
 // Incoming messages
 app.post("/webhook", async (req, res) => {
   const entry = req.body.entry?.[0];
@@ -73,7 +104,7 @@ app.post("/webhook", async (req, res) => {
   console.log("From:", clientNumber);
   console.log("Message:", text);
 
-  // 🔔 New Month Greeting (once per month)
+  // 🔔 New Month Greeting
   if (shouldSendNewMonth(clientNumber)) {
     await sendWhatsAppMessage(
       clientNumber,
@@ -81,17 +112,15 @@ app.post("/webhook", async (req, res) => {
     );
   }
 
-  // 🌤️ Daily Time-based Greeting (once per day)
+  // 🌤️ Daily Greeting
   if (shouldGreet(clientNumber)) {
     const greeting = getTimeGreeting();
     await sendWhatsAppMessage(clientNumber, greeting);
   }
 
-  // 🧪 Temporary reply (will be replaced by AI later)
-  await sendWhatsAppMessage(
-    clientNumber,
-    "Hello 👋 I’m here to help you with branding, apps, and digital services."
-  );
+  // 🤖 AI Response
+  const aiReply = await generateAIReply(text);
+  await sendWhatsAppMessage(clientNumber, aiReply);
 
   res.sendStatus(200);
 });
