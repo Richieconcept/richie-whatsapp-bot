@@ -1,27 +1,27 @@
-const clientMemory = new Map();
+const sessions = new Map();
 
-/**
- * Returns greeting based on time of day
- */
-export function getTimeGreeting() {
-  const hour = new Date().getHours();
-
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 17) return "Good afternoon";
-  return "Good evening";
+export function getSession(client) {
+  if (!sessions.has(client)) {
+    sessions.set(client, {
+      stage: "idle",
+      selectedPackage: null,
+      details: {},
+      lastInteraction: Date.now(),
+      followUpSent: false,
+    });
+  }
+  return sessions.get(client);
 }
 
-/**
- * Checks if greeting should be sent once per day
- */
-export function shouldGreet(client) {
-  const data = clientMemory.get(client) || {};
-  const today = new Date().toDateString();
+export function updateSession(client, updates) {
+  const current = getSession(client);
+  sessions.set(client, { ...current, ...updates });
+}
 
-  if (data.lastGreeted !== today) {
-    data.lastGreeted = today;
-    clientMemory.set(client, data);
-    return true;
-  }
-  return false;
+export function resetSession(client) {
+  sessions.delete(client);
+}
+
+export function getAllSessions() {
+  return sessions;
 }
