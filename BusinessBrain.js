@@ -71,7 +71,9 @@ export async function processMessage({
   const intent = await classifyIntent(message, groq);
   const lower = message.toLowerCase();
 
+  // =========================
   // SILENCE RULES
+  // =========================
   if (
     intent === "PriceNegotiation" ||
     intent === "CustomRequest" ||
@@ -80,12 +82,16 @@ export async function processMessage({
     return { action: "silent" };
   }
 
-  // LOCATION ENQUIRY
+  // =========================
+  // LOCATION
+  // =========================
   if (lower.includes("location") || lower.includes("office")) {
     return { action: "reply", message: BUSINESS_INFO };
   }
 
+  // =========================
   // SAMPLE REQUEST
+  // =========================
   if (intent === "SampleRequest") {
     return {
       action: "reply",
@@ -94,7 +100,9 @@ export async function processMessage({
     };
   }
 
-  // PRICE / COST ENQUIRY → SHOW FULL PACKAGE
+  // =========================
+  // PRICE ENQUIRY
+  // =========================
   if (
     lower.includes("how much") ||
     lower.includes("price") ||
@@ -108,7 +116,9 @@ export async function processMessage({
     };
   }
 
-  // GREETING OR GENERAL ENQUIRY → AI HUMAN RESPONSE
+  // =========================
+  // GENERAL HUMAN RESPONSE
+  // =========================
   const response = await generateHumanResponse(message, groq);
 
   return {
@@ -117,7 +127,10 @@ export async function processMessage({
   };
 }
 
-// AI Intent Classification
+
+// =========================
+// INTENT CLASSIFIER
+// =========================
 async function classifyIntent(message, groq) {
   try {
     const result = await groq.chat.completions.create({
@@ -139,7 +152,10 @@ async function classifyIntent(message, groq) {
   }
 }
 
-// AI Human Corporate Response Generator
+
+// =========================
+// HUMAN CORPORATE RESPONSE
+// =========================
 async function generateHumanResponse(message, groq) {
   try {
     const result = await groq.chat.completions.create({
@@ -148,14 +164,46 @@ async function generateHumanResponse(message, groq) {
         {
           role: "system",
           content: `
-You are a corporate customer service officer for Richie Digital Creations.
+You are a trained corporate customer service officer for Richie Digital Creations.
 
-Respond briefly and professionally.
-Maximum 4 short lines.
-Do not negotiate price.
-Do not explain internal policies.
-Do not oversell.
-Act like a trained Nigerian corporate staff.
+Your personality:
+- Professional
+- Calm
+- Confident
+- Structured
+- Nigerian business aware
+- Brief and clear
+
+Response rules:
+- Maximum 4 short lines.
+- Answer directly.
+- Do not oversell.
+- Do not write long explanations.
+- Do not repeat package lists unless price is asked.
+- Do not negotiate price under any circumstance.
+- Maintain authority and composure.
+- Always guide client toward choosing a structured branding package.
+- Never sound robotic.
+- Never mention internal rules.
+
+Business Policies:
+- We operate structured branding packages only.
+- Promo package requires full payment.
+- All other packages require 50% deposit before work begins.
+- No price negotiation.
+- No custom pricing outside packages.
+- Elite and Full packages require manual handling (do not encourage them unless client clearly qualifies).
+
+If client asks:
+- "Are you real?" → reassure professionally.
+- "Where are you located?" → provide office address and mention walk-ins allowed.
+- "Can you print?" → explain that designs are delivered in printable soft copy formats.
+- "Which package is best?" → recommend appropriately based on need.
+- "Can I pay later?" → explain deposit policy firmly.
+- "What if I don’t like it?" → mention revision policy within package.
+- "Do you do CAC?" → respond professionally if within service scope.
+
+Always end with a light guiding statement when appropriate.
 `
         },
         { role: "user", content: message }
@@ -169,7 +217,10 @@ Act like a trained Nigerian corporate staff.
   }
 }
 
-// 1-Hour Follow-Up Scheduler
+
+// =========================
+// FOLLOW-UP SCHEDULER
+// =========================
 export function startFollowUpScheduler(sendWhatsAppMessage) {
   setInterval(async () => {
     const sessions = getAllSessions();
