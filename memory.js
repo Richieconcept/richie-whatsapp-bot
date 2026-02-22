@@ -1,5 +1,3 @@
-// memory.js
-
 const clientMemory = new Map();
 
 /**
@@ -14,7 +12,7 @@ export function getTimeGreeting() {
 }
 
 /**
- * Checks if greeting should be sent
+ * Checks if greeting should be sent once per day
  */
 export function shouldGreet(client) {
   const data = clientMemory.get(client) || {};
@@ -22,21 +20,6 @@ export function shouldGreet(client) {
 
   if (data.lastGreeted !== today) {
     data.lastGreeted = today;
-    clientMemory.set(client, data);
-    return true;
-  }
-  return false;
-}
-
-/**
- * Checks if new month greeting should be sent
- */
-export function shouldSendNewMonth(client) {
-  const data = clientMemory.get(client) || {};
-  const currentMonth = new Date().getMonth();
-
-  if (data.lastMonth !== currentMonth) {
-    data.lastMonth = currentMonth;
     clientMemory.set(client, data);
     return true;
   }

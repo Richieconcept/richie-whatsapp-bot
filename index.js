@@ -5,8 +5,7 @@ import Groq from "groq-sdk";
 
 import {
   getTimeGreeting,
-  shouldGreet,
-  shouldSendNewMonth
+  shouldGreet
 } from "./memory.js";
 
 dotenv.config();
@@ -38,7 +37,7 @@ app.get("/webhook", (req, res) => {
   return res.sendStatus(403);
 });
 
-// Send WhatsApp message function
+// Send WhatsApp message
 async function sendWhatsAppMessage(to, text) {
   try {
     await axios.post(
@@ -57,7 +56,7 @@ async function sendWhatsAppMessage(to, text) {
     );
   } catch (error) {
     console.error(
-      "Error sending WhatsApp message:",
+      "WhatsApp Error:",
       error.response?.data || error.message
     );
   }
@@ -67,24 +66,31 @@ async function sendWhatsAppMessage(to, text) {
 async function generateAIReply(userMessage) {
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama3-8b-8192",
+      model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",
-          content: "You are a professional Nigerian business assistant helping customers with branding and digital services. Keep responses clear and concise."
+          content:
+            "You are a professional Nigerian business assistant for IBSK World Services Ltd. You help customers with branding, printing, digital services and business registrations. Keep replies short, clear and professional."
         },
         {
           role: "user",
           content: userMessage
         }
       ],
-      temperature: 0.7
+      temperature: 0.6
     });
 
-    return completion.choices[0]?.message?.content || "How may I assist you today?";
+    return (
+      completion.choices[0]?.message?.content ||
+      "How may I assist you today?"
+    );
   } catch (error) {
-    console.error("AI Error:", error.message);
-    return "Sorry, I'm having trouble responding right now.";
+    console.error(
+      "AI Error:",
+      error.response?.data || error.message
+    );
+    return "Please hold on while we process your request.";
   }
 }
 
@@ -104,15 +110,7 @@ app.post("/webhook", async (req, res) => {
   console.log("From:", clientNumber);
   console.log("Message:", text);
 
-  // 🔔 New Month Greeting
-  if (shouldSendNewMonth(clientNumber)) {
-    await sendWhatsAppMessage(
-      clientNumber,
-      "Happy new month 🎉 Wishing you a productive and successful month ahead."
-    );
-  }
-
-  // 🌤️ Daily Greeting
+  // 🌤️ Daily Greeting Only
   if (shouldGreet(clientNumber)) {
     const greeting = getTimeGreeting();
     await sendWhatsAppMessage(clientNumber, greeting);
